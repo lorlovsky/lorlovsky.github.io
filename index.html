@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101112">
+  <meta name="description" content="Your devices. One little island. Send files, share your clipboard, and stay in flow with NotchDrop.">
+  <title>NotchDrop — Your devices, in sync.</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23c7f78a'/%3E%3Cpath d='M18 20h28v10a14 14 0 0 1-28 0z' fill='%23101210'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="peer.js"></script>
+  <script defer src="music.js"></script>
+  <script defer src="app.js"></script>
+  <script defer src="desktop/dashboard.js"></script>
+  <script defer src="desktop/spotify-ui.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to dashboard</a>
+  <div id="notch" class="notch" data-state="idle" aria-label="Dynamic Island">
+    <button id="notch-toggle" class="notch-compact" aria-expanded="false" aria-controls="notch-body" aria-label="Expand Dynamic Island">
+      <span class="notch-connection"><i class="dot"></i><span id="notch-label">NotchDrop</span></span>
+      <span class="notch-music"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6 9c4-2 8-1 12 1M7 12c3-1.5 6-1 10 1M8 15c3-1 5-.5 8 1" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/></svg><span class="visualizer"><i></i><i></i><i></i></span></span>
+    </button>
+    <div id="notch-body" class="notch-body">
+      <div id="notch-player" class="notch-player">
+        <div class="album-art mini-art"><span>↗</span></div>
+        <div class="notch-track"><strong id="notch-track-title">After Hours</strong><small>NotchDrop Sessions · demo</small><input id="notch-seek" type="range" min="0" max="60" value="0" aria-label="Seek demo track"></div>
+        <div class="player-buttons"><button data-music="prev" aria-label="Previous track">⏮</button><button data-music="play" aria-label="Play demo music">▶</button><button data-music="next" aria-label="Next track">⏭</button></div>
+      </div>
+      <div id="notch-content"></div>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <a class="brand" href="#overview" aria-label="NotchDrop home"><span class="brand-mark"><i></i></span>NotchDrop<span class="beta">BETA</span></a>
+    <div class="workspace-label">YOUR WORKSPACE</div>
+    <nav aria-label="Main navigation">
+      <a class="nav-item active" href="#overview" data-nav="overview"><span data-icon="grid"></span>Overview<span class="nav-shortcut">⌘ 1</span></a>
+      <a class="nav-item" href="#devices" data-nav="devices"><span data-icon="devices"></span>My devices<span id="nav-device-count" class="count">1</span></a>
+      <a class="nav-item" href="#friends" data-nav="friends"><span data-icon="users"></span>Friends<span id="nav-friend-count" class="count">0</span></a>
+      <a class="nav-item" href="#clipboard" data-nav="clipboard"><span data-icon="clipboard"></span>Clipboard</a>
+      <a class="nav-item" href="#activity" data-nav="activity"><span data-icon="history"></span>Activity</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="island-tip"><span class="tip-island"><i></i><i></i><i></i></span><strong>Small island. Big possibilities.</strong><p>Drop something on the notch.<br>We’ll take it from there.</p><button id="try-island" class="text-button">Meet your island <span>↗</span></button></div>
+      <button class="nav-item settings-open"><span data-icon="settings"></span>Settings<span class="nav-shortcut">⌘ ,</span></button>
+      <div class="sidebar-profile"><span class="avatar" id="profile-initial">M</span><div><strong id="profile-name">Maks</strong><small>Personal workspace</small></div><button class="icon-button settings-open" aria-label="Edit profile">···</button></div>
+    </div>
+  </aside>
+
+  <div class="app-shell">
+    <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong id="page-label">Overview</strong></div><div class="topbar-right"><span id="active-device-badge" class="tiny-tag">This device</span><button id="network-status" class="status-pill" title="Reconnect signaling"><i class="dot"></i><span>Connecting</span></button><button class="icon-button settings-open" aria-label="Open settings"><span data-icon="settings"></span></button><span class="avatar small" id="top-initial">M</span></div></header>
+    <main id="main">
+      <section class="page-intro" id="overview"><div><div class="eyebrow">A LITTLE MORE CONNECTED</div><h1>Your devices, in sync<span>.</span></h1><p>Files, thoughts, and a little mischief. All in one place.</p></div><button id="pair-button" class="button primary"><span data-icon="plus"></span>Pair a device</button></section>
+
+      <section class="hero-grid" aria-label="Quick sharing">
+        <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Choose files to send, or drag files here">
+          <div class="drop-top"><span class="section-kicker"><i class="dot"></i>READY WHEN YOU ARE</span><span class="keycap">↗</span></div>
+          <div class="drop-orbit"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="floating-file file-back"><span data-icon="image"></span></div><div class="floating-file file-front"><span data-icon="file"></span><span class="file-lines"></span></div><span class="orbit-spark spark-one">+</span><span class="orbit-spark spark-two">+</span></div>
+          <h2>A little drop. A big leap.</h2><p>Drag files here, or <span class="link-text">browse files</span></p><div class="drop-bottom"><span><span data-icon="lock"></span>Encrypted in transit</span><span class="separator">·</span><span>Direct device-to-device</span></div>
+        </div>
+        <div class="quick-stack">
+          <section class="card clipboard-quick"><div class="card-title"><span class="tile-icon lime"><span data-icon="clipboard"></span></span><span class="tiny-tag">CROSS-DEVICE</span></div><h2>Copy here. Paste there.</h2><p>Your next great thought travels with you.</p><button id="push-clipboard" class="button secondary full"><span data-icon="clipboard"></span>Push my clipboard<span class="button-tail">↗</span></button><button id="write-note" class="subtle-button">Or write a quick note</button></section>
+          <section class="music-card"><div class="album-art"><span>↗</span><small>AFTER<br>HOURS</small></div><div class="music-copy"><span class="section-kicker"><i class="dot"></i>YOUR SOUNDTRACK</span><strong id="track-title">After Hours</strong><small id="track-artist">NotchDrop Sessions · offline demo</small></div><button class="round-play" data-music="play" aria-label="Play demo music">▶</button></section>
+        </div>
+      </section>
+      <div class="mobile-actions"><button id="mobile-files" class="button secondary"><span data-icon="image"></span>Photos & files</button><button id="camera-button" class="button secondary"><span data-icon="camera"></span>Camera upload</button></div>
+
+      <div class="middle-grid">
+        <section class="card devices-card" id="devices"><div class="section-header"><h2>My devices <span id="device-count" class="inline-count">1</span></h2><button id="add-device" class="text-button">Add device <span>+</span></button></div><p class="section-description">Your ecosystem, minus the boundaries.</p><div id="devices-list" class="device-list"></div><div class="card-foot"><span data-icon="shield"></span><span>Only devices you approve can join.</span></div></section>
+        <section class="card friends-card" id="friends"><div class="section-header"><h2>Inner circle <span id="friend-count" class="inline-count">0</span></h2><button id="add-friend" class="icon-button" aria-label="Add friend"><span data-icon="plus"></span></button></div><p class="section-description">Good things are better when shared.</p><div id="friends-list" class="friends-list"></div><button id="invite-friend" class="button secondary full"><span data-icon="users"></span>Invite a friend<span class="button-tail">↗</span></button></section>
+      </div>
+
+      <div class="bottom-grid">
+        <section class="card clipboard-history" id="clipboard"><div class="section-header"><h2>Clipboard bridge</h2><button id="clear-clipboard" class="text-button muted">Clear history</button></div><div id="clipboard-list"></div></section>
+        <section class="prank-card"><div class="prank-copy"><span class="section-kicker">A HEALTHY DOSE OF CHAOS</span><h2>Make their day.<br>Or interrupt it.</h2><p>One friend. One prank. Every 24 hours.</p><button id="open-pranks" class="button prank-button">Send a daily prank<span>↗</span></button></div><div class="prank-art" aria-hidden="true"><span class="prank-star star-one">✦</span><div class="smiley"><i></i><i></i><b></b></div><span class="prank-star star-two">✧</span><span class="prank-star star-three">✦</span></div></section>
+      </div>
+      <section class="activity-section" id="activity"><div class="section-header"><h2>Recent activity</h2><span class="muted small-text">This browser’s session</span></div><div id="activity-list" class="activity-list"><div class="empty-activity"><span data-icon="history"></span><span>A clean slate. Your next drop starts the story.</span></div></div></section>
+      <footer><span><i class="dot"></i>A little closer, wherever you are.</span><span>NotchDrop <span class="footer-dot">/</span> Made for your flow.</span></footer>
+    </main>
+  </div>
+
+  <input id="file-input" type="file" multiple hidden>
+  <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+  <div id="toasts" class="toast-stack" role="status" aria-live="polite"></div>
+
+  <dialog id="pair-dialog" class="modal"><div class="modal-header"><div><span class="eyebrow">BRING YOUR DEVICES TOGETHER</span><h2>One scan. In sync.</h2></div><button class="icon-button" data-close aria-label="Close pairing">✕</button></div><p>Open NotchDrop on your other device and scan this code. Keep both tabs open, then approve the pairing request here.</p><div id="qr-code" class="qr-code"></div><p id="pair-warning" class="notice"></p><label for="share-url">App URL accessible from your phone</label><div class="input-row"><input id="share-url" type="url" placeholder="https://your-notchdrop.example"><button id="update-qr" class="button secondary">Update QR</button></div><label for="my-peer-id">This device’s code</label><div class="input-row"><input id="my-peer-id" readonly><button id="copy-peer" class="button secondary">Copy</button></div><button id="copy-link" class="text-button">Copy pairing link ↗</button><div class="modal-divider"></div><label for="pair-peer-id">Or connect with another device’s code</label><form id="pair-form" class="input-row"><input id="pair-peer-id" placeholder="user-maks-…" required maxlength="100"><button class="button primary" type="submit">Connect</button></form></dialog>
+
+  <dialog id="friend-dialog" class="modal"><div class="modal-header"><h2>Grow your inner circle.</h2><button class="icon-button" data-close aria-label="Close add friend">✕</button></div><p>Ask your friend for the device code in their Pair a device panel. They’ll approve your request before you can share.</p><form id="friend-form"><label for="friend-peer-id">Friend’s device code</label><input id="friend-peer-id" required placeholder="user-friend-…" maxlength="100"><button class="button primary full" type="submit">Send connection request ↗</button></form><button id="copy-friend-link" class="button secondary full">Copy my friend invitation link</button><p class="small-text muted">Names are labels; verify a device code with your friend before trusting it.</p></dialog>
+
+  <dialog id="note-dialog" class="modal"><div class="modal-header"><h2>A thought worth sharing.</h2><button class="icon-button" data-close aria-label="Close note">✕</button></div><form id="note-form"><label for="note-text">Your note or pasted clipboard</label><textarea id="note-text" rows="6" maxlength="65536" placeholder="A link, an idea, a very important grocery list…" required></textarea><button class="button primary full" type="submit">Choose a recipient ↗</button></form></dialog>
+
+  <dialog id="prank-dialog" class="modal"><div class="modal-header"><div><span class="eyebrow">USE YOUR ONE SHOT WISELY</span><h2>A little mischief.</h2></div><button class="icon-button" data-close aria-label="Close pranks">✕</button></div><p>One prank per friend every 24 hours. Your friend decides whether to auto-accept.</p><div class="prank-options" id="prank-options"><button data-prank="confetti" class="prank-option selected" aria-pressed="true"><span>🎉</span><strong>Confetti explosion</strong><small>A tiny celebration</small></button><button data-prank="airhorn" class="prank-option" aria-pressed="false"><span>📣</span><strong>Airhorn blast</strong><small>Short, low-volume surprise</small></button><button data-prank="bsod" class="prank-option" aria-pressed="false"><span>💻</span><strong>Fake blue screen</strong><small>Just kidding. Obviously.</small></button><button data-prank="cat" class="prank-option" aria-pressed="false"><span>🐱</span><strong>Cat takeover</strong><small>You work for the cat now</small></button></div><div class="input-row"><button id="preview-prank" class="button secondary">Preview locally</button><button id="send-prank" class="button primary">Choose a friend ↗</button></div></dialog>
+
+  <dialog id="settings-dialog" class="modal settings-modal"><div class="modal-header"><div><span class="eyebrow">MAKE YOURSELF AT HOME</span><h2>Your setup.</h2></div><button class="icon-button" data-close aria-label="Close settings">✕</button></div><form id="settings-form"><div class="form-grid"><div><label for="handle">Your name</label><input id="handle" required maxlength="30"></div><div><label for="device-name">Device nickname</label><input id="device-name" required maxlength="50"></div></div><h3>The little island</h3><label class="toggle-row"><span><strong>Dynamic Notch</strong><small>A home for drops, music, and notifications</small></span><input type="checkbox" id="setting-notch" role="switch"><span class="switch"></span></label><label class="toggle-row"><span><strong>Music in the notch</strong><small>Your soundtrack, always a glance away</small></span><input type="checkbox" id="setting-music" role="switch"><span class="switch"></span></label><h3>Sharing & surprises</h3><label class="toggle-row"><span><strong>Auto-accept daily pranks</strong><small>Let approved friends bring a little chaos</small></span><input type="checkbox" id="setting-pranks" role="switch"><span class="switch"></span></label><label class="toggle-row"><span><strong>Auto-accept my devices</strong><small>Only devices you explicitly paired as your own</small></span><input type="checkbox" id="setting-own" role="switch"><span class="switch"></span></label><details class="network-settings"><summary>Advanced · cross-network relay</summary><p class="small-text muted">Public STUN is built in. For restrictive Wi-Fi or mobile networks, add your TURN provider’s URL and credentials. These stay in this browser. Saving reconnects networking.</p><label for="turn-url">TURN URL</label><input id="turn-url" placeholder="turn:relay.example.com:3478"><div class="form-grid"><div><label for="turn-user">TURN username</label><input id="turn-user" autocomplete="off"></div><div><label for="turn-password">TURN credential</label><input id="turn-password" type="password" autocomplete="off"></div></div><label class="checkbox-line"><input id="force-relay" type="checkbox">Force relay (for testing)</label></details><button class="button primary full" type="submit">Save my setup</button></form></dialog>
+
+  <dialog id="request-dialog" class="modal"><div class="modal-header"><h2 id="request-title">Incoming request</h2><button class="icon-button" id="request-close" aria-label="Decline request">✕</button></div><div id="request-content"></div><div class="input-row"><button id="request-decline" class="button secondary">Decline</button><button id="request-accept" class="button primary">Accept</button></div></dialog>
+  <dialog id="prank-overlay" class="prank-overlay"><button class="button secondary" id="dismiss-prank">Close surprise ✕</button><div id="prank-scene"></div></dialog>
+</body>
+</html>

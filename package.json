@@ -1,0 +1,15 @@
+{
+  "name": "notchdrop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NotchDrop web dashboard and optional always-on-top Windows notch",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron desktop/main.cjs",
+    "web": "node serve.cjs",
+    "test": "node --test tests/transport.cjs"
+  },
+  "devDependencies": {
+    "electron": "44.7.0"
+  }
+}
