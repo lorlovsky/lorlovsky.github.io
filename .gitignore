@@ -1,11 +1,55 @@
+# Dependencies and generated output
 node_modules/
-test-results/
-*.log
-data/
+/dist/
+/out/
+/release/
+.cache/
+
+# Local account database, SQLite sidecars, and backups
+# Keep database/schema.sql tracked.
+/data/
+/backups/
 *.sqlite
-*.sqlite-wal
-*.sqlite-shm
+*.sqlite3
 *.db
+*.sqlite-*
+*.sqlite3-*
+*.db-*
+*.sqlite.bak
+*.sqlite3.bak
+*.db.bak
+
+# Local secrets; keep safe environment examples tracked
 .env
 .env.*
 !.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Test artifacts and logs
+test-results/
+playwright-report/
+coverage/
+*.log
+*.pid
+*.pid.lock
+
+# Local editor/database-tool state and temporary files
+.idea/
+.vs/
+.dbeaver/
+/tmp/
+/temp/
+*.swp
+*.swo
+*.tmp
+*.temp
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
