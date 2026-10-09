@@ -5,9 +5,10 @@ if not exist "node_modules\mysql2" (
   call npm install
 )
 if not exist ".env" (
-  echo No .env file found. Copy .env.example to .env and enter your MySQL password.
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-mysql.ps1"
 )
 echo NotchDrop accounts: http://localhost:8083
 echo Keep this window open while using the local account server.
 node server.cjs
+if errorlevel 1 echo If the MySQL login was wrong, delete the .env file and run this again.
 pause

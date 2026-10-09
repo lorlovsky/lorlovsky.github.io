@@ -1,6 +1,6 @@
 FROM node:24-slim
 ENV NODE_ENV=production NOTCHDROP_HOST=0.0.0.0 PORT=8083 \
-    NOTCHDROP_MYSQL_HOST=mysql NOTCHDROP_MYSQL_PORT=3306 NOTCHDROP_MYSQL_USER=notchdrop NOTCHDROP_MYSQL_DATABASE=notchdrop
+    NOTCHDROP_MYSQL_HOST=mysql NOTCHDROP_MYSQL_PORT=3306 NOTCHDROP_MYSQL_USER=notchdrop NOTCHDROP_MYSQL_DATABASE=notchdb
 # Supply NOTCHDROP_MYSQL_PASSWORD at runtime (docker run -e / secrets); never bake it into the image.
 WORKDIR /app
 COPY package.json package-lock.json ./

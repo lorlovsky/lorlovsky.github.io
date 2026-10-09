@@ -42,7 +42,7 @@ async function readBody(req) {
   } catch { reject(400,'Send a valid JSON object.'); }
 }
 function mysqlSettings(options={}) {
-  const database = options.database || process.env.NOTCHDROP_MYSQL_DATABASE || 'notchdrop';
+  const database = options.database || process.env.NOTCHDROP_MYSQL_DATABASE || 'notchdb';
   if (!/^[A-Za-z0-9_]{1,64}$/.test(database)) throw new Error('NOTCHDROP_MYSQL_DATABASE may only contain letters, numbers and underscores.');
   return {
     database,
