@@ -1,3 +1,11 @@
 node_modules/
 test-results/
 *.log
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+.env
+.env.*
+!.env.example

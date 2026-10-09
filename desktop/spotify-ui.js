@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   if (!window.NotchDesktop || !window.NotchMusic) return;
+  function initialize() {
   const section = document.createElement('section'); section.className = 'spotify-source';
   const heading = document.createElement('h3'); heading.textContent = 'Your Spotify desktop app';
   const status = document.createElement('p'); status.className = 'small-text muted'; status.id = 'spotify-desktop-status'; status.textContent = 'Connect the Spotify app on this PC. No token or extra sign-in required.';
@@ -22,4 +23,8 @@
     if (event.detail.source === 'spotify-desktop') status.textContent = event.detail.available ? 'Connected. Your current song and playback controls are in the notch.' : event.detail.message || 'Waiting for Spotify. Open it and play a song.';
   });
   try { if (localStorage.getItem('notchdrop.musicSource') === 'spotify-desktop') connect.click(); } catch {}
+  if (window.notchDropPendingSpotify) { window.notchDropPendingSpotify = false; connect.click(); }
+  }
+  if (window.NotchDrop) initialize();
+  else window.addEventListener('notchdrop:ready', initialize, {once: true});
 })();

@@ -4,10 +4,15 @@
   if (!bridge) return;
   document.body.classList.add('desktop-dashboard');
   const notch = document.getElementById('notch');
+  let signedOut = false;
+  window.addEventListener('notchdrop:signout', () => {
+    signedOut = true;
+    bridge.publish({html: '', classes: 'notch is-hidden', state: 'idle', enabled: false, playing: false, forms: []});
+  });
   const identities = new WeakMap(); let count = 0, scheduled = false;
   function publish() {
     scheduled = false;
-    if (!window.NotchDrop) return;
+    if (!window.NotchDrop || signedOut) return;
     const forms = [];
     for (const control of notch.querySelectorAll('button,input')) {
       if (!identities.has(control)) identities.set(control, `d${++count}`);
@@ -26,7 +31,7 @@
   new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   bridge.onRefresh(publish);
   bridge.onAction(action => {
-    if (action.kind === 'spotify-connect') document.getElementById('spotify-desktop-connect')?.click();
+    if (action.kind === 'spotify-connect') { const button = document.getElementById('spotify-desktop-connect'); if (button) button.click(); else window.notchDropPendingSpotify = true; }
     else if (action.kind === 'hover') notch.dispatchEvent(new MouseEvent('mouseenter'));
     else if (action.kind === 'leave') notch.dispatchEvent(new MouseEvent('mouseleave'));
     else if (action.kind === 'escape') document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

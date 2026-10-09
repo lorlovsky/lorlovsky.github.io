@@ -7,16 +7,40 @@
   <meta name="description" content="Your devices. One little island. Send files, share your clipboard, and stay in flow with NotchDrop.">
   <title>NotchDrop — Your devices, in sync.</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23c7f78a'/%3E%3Cpath d='M18 20h28v10a14 14 0 0 1-28 0z' fill='%23101210'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=pairing-2">
+  <link rel="stylesheet" href="styles.css?v=accounts-1">
+  <link rel="stylesheet" href="auth.css?v=accounts-1">
+  <script defer src="config.js"></script>
+  <script defer src="auth.js?v=accounts-1"></script>
+  <script defer src="accounts.js?v=accounts-1"></script>
   <script defer src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script defer src="peer.js?v=pairing-2"></script>
   <script defer src="music.js"></script>
-  <script defer src="app.js?v=pairing-2"></script>
+  <script defer src="app.js?v=accounts-1"></script>
   <script defer src="desktop/dashboard.js"></script>
   <script defer src="desktop/spotify-ui.js"></script>
 </head>
-<body>
+<body class="auth-locked">
+  <section id="auth-screen" class="auth-screen" aria-label="NotchDrop account">
+    <div class="auth-story">
+      <a class="auth-brand" href="#"><span class="auth-brand-symbol" aria-hidden="true"></span>NotchDrop</a>
+      <div class="auth-story-copy"><span class="eyebrow">YOUR DEVICES. YOUR PEOPLE.</span><h1>One username.<br>Your whole <span>island.</span></h1><p>A home for your devices, your friends, and the things you want to share.</p><div class="auth-art" aria-hidden="true"><div class="auth-island"><i></i>Your little island<i></i></div></div></div>
+      <footer>Files travel between devices. Your account brings them together.</footer>
+    </div>
+    <div class="auth-form-side"><div class="auth-card">
+      <div class="auth-tabs" aria-label="Choose account action"><button id="auth-login-tab" type="button" aria-pressed="true">Sign in</button><button id="auth-register-tab" type="button" aria-pressed="false">Create account</button></div>
+      <h2 id="auth-title">Welcome back.</h2><p id="auth-description">Sign in to your devices, friends, and little island.</p>
+      <form id="auth-form">
+        <label for="auth-username">Username</label><input id="auth-username" name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="your_username"><small>3–24 letters, numbers or underscores</small>
+        <label for="auth-password">Password</label><div class="auth-password-wrap"><input id="auth-password" name="password" type="password" required minlength="10" maxlength="128" autocomplete="current-password" placeholder="At least 10 characters"><button id="auth-reveal" type="button" aria-label="Show password">Show</button></div>
+        <div id="auth-confirm-row" hidden><label for="auth-confirm">Confirm password</label><input id="auth-confirm" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="One more time"></div>
+        <button id="auth-submit" class="button primary full" type="submit" disabled>Sign in</button>
+      </form>
+      <div id="auth-message" class="auth-message" role="status" aria-live="polite"></div><button id="auth-retry" class="text-button" type="button" hidden>Retry connection</button>
+      <p class="auth-fine-print">Your username is how friends find you.<br>Use the same account on your other devices.</p>
+      <noscript>Enable JavaScript to create an account and use NotchDrop.</noscript>
+    </div></div>
+  </section>
   <a class="skip-link" href="#main">Skip to dashboard</a>
   <div id="notch" class="notch" data-state="idle" aria-label="Dynamic Island">
     <button id="notch-toggle" class="notch-compact" aria-expanded="false" aria-controls="notch-body" aria-label="Expand Dynamic Island">

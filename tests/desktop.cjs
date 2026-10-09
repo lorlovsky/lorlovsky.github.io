@@ -4,10 +4,12 @@ const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs/promises');
 const { _electron } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const { accountFixture } = require('./account-fixture.cjs');
 (async () => {
+  const accounts = await accountFixture();
   const root = path.resolve(__dirname, '..');
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'notchdrop-desktop-test-'));
-  const executablePath = require(path.join(root, 'node_modules', 'electron'));
+  const executablePath = require(process.env.NOTCHDROP_ELECTRON_MODULE || path.join(root, 'node_modules', 'electron'));
   const electron = await _electron.launch({ executablePath, args: [path.join(root, 'desktop', 'main.cjs'), '--notchdrop-test'], env: { ...process.env, NOTCHDROP_TEST_PROFILE: profile } });
   const errors = [];
   try {
@@ -22,6 +24,7 @@ const { _electron } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
       await new Promise(r => setTimeout(r, 100));
     }
     assert(dashboard && overlay, 'Both isolated windows created');
+    await accounts.prepare(dashboard.context(), 'desktop_test'); await dashboard.reload();
     for (const page of [dashboard, overlay]) page.on('pageerror', error => errors.push(error.message));
     await dashboard.waitForFunction(() => !!window.NotchDrop);
     await overlay.waitForFunction(() => !!document.querySelector('[data-desktop-action]'));
@@ -98,5 +101,5 @@ const { _electron } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     assert.equal(await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.getTitle().includes('Desktop Notch')).isVisible()), true);
     assert.deepEqual(errors, []);
     console.log('PASS: primary-monitor top-center position, always-on-top native window, sandboxed renderers, hover expansion, shared music controls, text/file drops, settings visibility, notch survives dashboard minimize/close.');
-  } finally { await electron.close(); }
+  } finally { await electron.close(); await accounts.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

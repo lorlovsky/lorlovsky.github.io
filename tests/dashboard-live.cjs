@@ -2,13 +2,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
-const base = process.env.NOTCHDROP_URL || 'http://localhost:8080';
+const { accountFixture } = require('./account-fixture.cjs');
 (async () => {
+  const accounts = await accountFixture();
+  const base = process.env.NOTCHDROP_URL || accounts.url;
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}) });
   const errors = [];
   try {
     const ca = await browser.newContext({ acceptDownloads: true });
     const cb = await browser.newContext({ acceptDownloads: true });
+    await accounts.prepare(ca, 'dashboard_a'); await accounts.prepare(cb, 'dashboard_b');
     const a = await ca.newPage(), b = await cb.newPage();
     for (const page of [a, b]) page.on('pageerror', error => errors.push(error.message));
     await Promise.all([a.goto(base), b.goto(base)]);
@@ -18,6 +21,7 @@ const base = process.env.NOTCHDROP_URL || 'http://localhost:8080';
     await a.locator('#pair-button').click();
     assert(await a.locator('#qr-code canvas').count());
     await b.locator('#add-friend').click();
+    await b.locator('#friend-dialog summary').click();
     await b.locator('#friend-peer-id').fill(aid);
     await b.locator('#friend-form button[type=submit]').click();
     await a.locator('#request-dialog').waitFor({ state: 'visible' });
@@ -66,7 +70,7 @@ const base = process.env.NOTCHDROP_URL || 'http://localhost:8080';
     await a.locator('#request-accept').click();
     await a.locator('#prank-overlay').waitFor({ state: 'visible' });
     await a.locator('#dismiss-prank').click();
-    await b.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('notchdrop.v1')).sentPranks).length === 1);
+    await b.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('notchdrop.v2:' + NotchAuth.getUser().id)).sentPranks).length === 1);
     await b.locator('#open-pranks').click();
     await b.locator('#send-prank').click();
     assert(await b.locator('.target-option input').isDisabled());
@@ -103,5 +107,5 @@ const base = process.env.NOTCHDROP_URL || 'http://localhost:8080';
     assert.equal(await a.evaluate(() => NotchDrop.getState().requestCount), 0);
     assert.deepEqual(errors, []);
     console.log('PASS: live dashboard pairing while QR dialog open, friend approval, file download exact bytes, clipboard decline and plain-text acceptance, hidden-notch fallback, prank approval and daily cooldown, explicit own-device auto-accept, simultaneous trusted reconnect.');
-  } finally { await browser.close(); }
+  } finally { await browser.close(); await accounts.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

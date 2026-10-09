@@ -4,13 +4,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
-const base = process.env.NOTCHDROP_URL || 'https://lorlovsky.github.io';
+const { accountFixture } = require('./account-fixture.cjs');
 (async () => {
+  const accounts = await accountFixture();
+  const base = process.env.NOTCHDROP_URL || accounts.url;
   const browser = await chromium.launch({headless:true, ...(process.env.BROWSER_PATH ? {executablePath:process.env.BROWSER_PATH} : {})});
   try {
     const host = await browser.newContext();
     const phone = await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36'});
     const errors = [];
+    await accounts.prepare(host, 'qr_host'); await accounts.prepare(phone, 'qr_phone');
     if (process.env.NOTCHDROP_OVERRIDE) for (const context of [host,phone]) await context.route('**/*', async route => {
       const url = new URL(route.request().url());
       const name = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
@@ -42,5 +45,5 @@ const base = process.env.NOTCHDROP_URL || 'https://lorlovsky.github.io';
     await b.screenshot({path:path.join(__dirname,'..','test-results','pairing-mobile.png')});
     assert.deepEqual(errors,[]);
     console.log('PASS: mobile QR confirmation visible without hovering, explicit Connect, host approval over QR modal, connection progress, independent own-device consent, no mobile overflow or page errors.');
-  } finally { await browser.close(); }
+  } finally { await browser.close(); await accounts.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

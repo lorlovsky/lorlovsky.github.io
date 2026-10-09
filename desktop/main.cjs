@@ -84,6 +84,7 @@ function createWindows() {
   dashboard.on('close', event => { if (!quitting) { event.preventDefault(); dashboard.hide(); } });
   island.on('close', event => { if (!quitting) event.preventDefault(); });
   dashboard.once('ready-to-show', () => { if (!testing) dashboard.show(); });
+  dashboard.webContents.on('did-start-loading', () => { latestSnapshot = null; if (island && !island.isDestroyed()) island.hide(); });
   dashboard.webContents.once('did-finish-load', () => { if (process.argv.includes('--spotify')) dashboard.webContents.send('notch:perform', { kind: 'spotify-connect' }); });
   island.webContents.once('did-finish-load', () => { if (latestSnapshot) island.webContents.send('notch:snapshot', latestSnapshot); });
   dashboard.loadURL(dashboardURL);

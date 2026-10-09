@@ -3,22 +3,25 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
-const url = process.env.NOTCHDROP_URL || 'http://localhost:8080';
+const { accountFixture } = require('./account-fixture.cjs');
 const output = path.join(__dirname, '..', 'test-results');
 
 (async () => {
+  const accounts = await accountFixture();
+  const url = process.env.NOTCHDROP_URL || accounts.url;
   await fs.mkdir(output, { recursive: true });
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}) });
   const errors = [];
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    await accounts.prepare(context, 'browser_test');
     // Verify the entire local experience with every CDN and font request blocked.
     await context.route(/^https:\/\//, route => route.abort());
     const page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(url);
     await page.waitForFunction(() => window.NotchMusic && document.querySelector('#devices-list').children.length);
-    assert.equal(await page.locator('h1').innerText(), 'Your devices, in sync.');
+    assert.equal(await page.locator('#overview h1').innerText(), 'Your devices, in sync.');
     assert(await page.locator('#devices-list').innerText());
     await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
     await page.locator('.round-play').click();
@@ -36,12 +39,13 @@ const output = path.join(__dirname, '..', 'test-results');
     await page.mouse.move(700, 350);
 
     await page.locator('.topbar .settings-open').click();
-    await page.locator('#handle').fill('QA Explorer');
+    await page.locator('#handle').fill('qa_explorer');
     await page.locator('#device-name').fill('Test Laptop');
     await page.locator('#setting-notch').uncheck({ force: true });
     await page.locator('#settings-form button[type=submit]').click();
+    await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
     await page.reload();
-    await page.waitForFunction(() => document.querySelector('#profile-name').textContent === 'QA Explorer');
+    await page.waitForFunction(() => document.querySelector('#profile-name').textContent === 'qa_explorer');
     assert.equal(await page.locator('#notch').isVisible(), false);
     await page.locator('#write-note').click();
     await page.locator('#note-text').fill('Send while the notch is disabled');
@@ -80,7 +84,7 @@ const output = path.join(__dirname, '..', 'test-results');
     await page.waitForFunction(() => document.querySelector('#notch').dataset.state === 'targets');
     await page.keyboard.press('Escape');
     await page.locator('#pair-button').click();
-    assert((await page.locator('#my-peer-id').inputValue()).startsWith('user-'));
+    assert((await page.locator('#my-peer-id').inputValue()).startsWith('nd-'));
     assert((await page.locator('#pair-warning').innerText()).length > 0);
     await page.keyboard.press('Escape');
 
@@ -93,7 +97,8 @@ const output = path.join(__dirname, '..', 'test-results');
     }
     await context.close();
     const local = await browser.newContext();
-    await local.route(/^https?:\/\//, route => route.abort());
+    await accounts.prepare(local, 'file_test');
+    await local.route(/^https?:\/\//, route => route.request().url().startsWith(accounts.url) ? route.continue() : route.abort());
     const filePage = await local.newPage();
     filePage.on('pageerror', error => errors.push(error.message));
     await filePage.goto(require('node:url').pathToFileURL(path.join(__dirname, '..', 'index.html')).href);
@@ -103,5 +108,5 @@ const output = path.join(__dirname, '..', 'test-results');
     await local.close();
     assert.deepEqual(errors, [], 'No uncaught browser errors');
     console.log('PASS: offline desktop/mobile/file://, music playback and seeking, persisted settings, plain-text note, prank preview, drag/drop, pairing fallback, no horizontal overflow or browser exceptions.');
-  } finally { await browser.close(); }
+  } finally { await browser.close(); await accounts.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

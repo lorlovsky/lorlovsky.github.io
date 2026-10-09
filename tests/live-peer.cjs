@@ -1,8 +1,10 @@
 /* Optional live WebRTC smoke check. Uses public PeerJS signaling, two isolated browsers. */
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
-const url = process.env.NOTCHDROP_URL || 'http://localhost:8080';
+const { accountFixture } = require('./account-fixture.cjs');
 (async () => {
+  const accounts = await accountFixture();
+  const url = process.env.NOTCHDROP_URL || accounts.url;
   const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}) });
   try {
     const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
@@ -45,5 +47,5 @@ const url = process.env.NOTCHDROP_URL || 'http://localhost:8080';
     assert.deepEqual(result.errors, []);
     console.log('PASS: real PeerJS signaling, isolated browser contexts, real WebRTC data channel, 196623-byte file exact integrity, Unicode clipboard and acknowledged prank.');
     await Promise.all(pages.map(page => page.evaluate(() => live.destroy())));
-  } finally { await browser.close(); }
+  } finally { await browser.close(); await accounts.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

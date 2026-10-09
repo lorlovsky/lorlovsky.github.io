@@ -1,19 +1,24 @@
 /* NotchDrop dashboard. No user-supplied content is inserted as HTML. */
-(() => {
+(async () => {
   'use strict';
+  if (!window.NotchAuth) return;
+  const account = await window.NotchAuth.ready;
   const $ = id => document.getElementById(id);
   const all = selector => [...document.querySelectorAll(selector)];
   const DAY = 86400000;
-  const storageKey = 'notchdrop.v1';
+  const storageKey = `notchdrop.v2:${account.id}`;
   const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const deviceType = mobile ? 'phone' : 'laptop';
   const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   let storageFailed = false;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch { storageFailed = true; }
-  const defaults = {handle: 'Maks', deviceName: mobile ? 'My phone' : /Mac/i.test(navigator.platform) ? 'MacBook' : 'Windows Laptop', notch: true, music: true, autoPranks: false, autoOwn: true, turnUrl: '', turnUser: '', turnPassword: '', forceRelay: false};
+  const defaults = {handle: account.username, deviceName: mobile ? 'My phone' : /Mac/i.test(navigator.platform) ? 'MacBook' : 'Windows Laptop', notch: true, music: true, autoPranks: false, autoOwn: true, turnUrl: '', turnUser: '', turnPassword: '', forceRelay: false};
   let settings = {...defaults, ...(saved.settings || {})};
-  const peerId = typeof saved.peerId === 'string' ? saved.peerId : `user-maks-${uid()}`;
+  settings.handle = account.username;
+  const installationId = saved.installationId || crypto.randomUUID();
+  const registeredDevice = await NotchAccounts.register({installationId, name: settings.deviceName, type: deviceType});
+  const peerId = registeredDevice.peerId;
   let contacts = Array.isArray(saved.contacts) ? saved.contacts.filter(c => c && typeof c.peerId === 'string' && typeof c.secret === 'string').map(c => ({...c, online: false})) : [];
   let history = Array.isArray(saved.history) ? saved.history.filter(h => h && typeof h.text === 'string').slice(0, 20) : [];
   let sentPranks = saved.sentPranks && typeof saved.sentPranks === 'object' ? saved.sentPranks : {};
@@ -54,7 +59,7 @@
   function button(text, className, action, iconName) { const node = el('button', className, text); node.type = 'button'; if (iconName) node.prepend(icon(iconName)); node.addEventListener('click', action); return node; }
   function toast(message, kind = '') { const node = el('div', `toast ${kind}`, message); $('toasts').append(node); setTimeout(() => node.remove(), 5200); }
   function persist() {
-    try { localStorage.setItem(storageKey, JSON.stringify({peerId, settings, contacts: contacts.map(({online, ...c}) => c), history, sentPranks, receivedPranks, shareURL: saved.shareURL || ''})); }
+    try { localStorage.setItem(storageKey, JSON.stringify({installationId, peerId, settings, contacts: contacts.map(({online, ...c}) => c), history, sentPranks, receivedPranks, shareURL: saved.shareURL || ''})); }
     catch { if (!storageFailed) toast('Browser storage is full or unavailable. Changes will last for this tab only.'); storageFailed = true; }
   }
   const identity = () => ({id: peerId, handle: settings.handle, deviceName: settings.deviceName, deviceType});
@@ -103,15 +108,17 @@
   function renderContacts() {
     const own = contacts.filter(c => c.kind === 'own');
     const friends = contacts.filter(c => c.kind !== 'own');
-    $('device-count').textContent = $('nav-device-count').textContent = own.length + 1;
-    $('friend-count').textContent = $('nav-friend-count').textContent = friends.length;
+    const accountDevices = NotchAccounts.deviceRows(contacts, connect);
+    const accountFriends = NotchAccounts.friendRows(contacts, connect);
+    $('device-count').textContent = $('nav-device-count').textContent = own.length + accountDevices.length + 1;
+    $('friend-count').textContent = $('nav-friend-count').textContent = friends.length + accountFriends.length;
     const here = el('div', 'device-row current-device');
     const hereIcon = el('span', 'device-icon'); hereIcon.append(icon(deviceType));
     const hereInfo = el('div', 'device-info'); hereInfo.append(el('strong', '', settings.deviceName), el('small', '', 'This device · ready to share'));
     const tag = el('span', 'tiny-tag this-device', 'YOU ARE HERE'); here.append(hereIcon, hereInfo, tag);
-    $('devices-list').replaceChildren(here, ...own.map(renderContact));
-    $('friends-list').replaceChildren(...friends.map(renderContact));
-    if (!friends.length) { const empty = el('div', 'empty-state friends-empty'); empty.append(el('div', 'empty-friends-icon', '↗'), el('strong', '', 'Your people belong here.'), el('p', '', 'Add a friend to send good things their way.')); $('friends-list').append(empty); }
+    $('devices-list').replaceChildren(here, ...own.map(renderContact), ...accountDevices);
+    $('friends-list').replaceChildren(...accountFriends, ...friends.map(renderContact));
+    if (!friends.length && !accountFriends.length) { const empty = el('div', 'empty-state friends-empty'); empty.append(el('div', 'empty-friends-icon', '↗'), el('strong', '', 'Your people belong here.'), el('p', '', 'Add a friend to send good things their way.')); $('friends-list').append(empty); }
   }
   function renderContact(c) {
     const row = el('div', c.kind === 'own' ? 'device-row' : 'friend-row');
@@ -251,6 +258,7 @@
     try { network.start(); } catch (e) { setNetworkStatus({state: 'offline', message: e.message}); }
   }
   function setNetworkStatus({state, message}) {
+    NotchAccounts.setOnline(state === 'online');
     networkState = state; $('network-status').dataset.state = state; $('network-status').querySelector('span').textContent = state === 'online' ? 'Online' : state === 'connecting' ? 'Connecting' : 'Offline mode';
     $('network-status').title = message || (state === 'online' ? 'Signaling connected · click to reconnect' : 'Click to reconnect'); $('notch').dataset.connection = state; $('notch-label').textContent = state === 'online' ? 'NotchDrop' : state === 'connecting' ? 'Connecting' : 'Offline ready'; $('my-peer-id').value = peerId;
   }
@@ -333,11 +341,14 @@
   $('copy-friend-link').addEventListener('click', () => { const base = saved.shareURL || (location.protocol !== 'file:' ? `${location.origin}${location.pathname}` : ''); if (!base) return toast('Set a reachable app URL in Pair a device first.'); try { copyText(window.NotchPeer.generatePairURL(base, peerId, 'friend')); } catch (e) { toast(e.message); } });
   function openSettings() { $('handle').value = settings.handle; $('device-name').value = settings.deviceName; for (const [id, key] of [['setting-notch','notch'], ['setting-music','music'], ['setting-pranks','autoPranks'], ['setting-own','autoOwn'], ['force-relay','forceRelay']]) $(id).checked = settings[key]; $('turn-url').value = settings.turnUrl; $('turn-user').value = settings.turnUser; $('turn-password').value = settings.turnPassword; showDialog('settings-dialog'); }
   all('.settings-open').forEach(b => b.addEventListener('click', openSettings));
-  $('settings-form').addEventListener('submit', e => {
+  $('settings-form').addEventListener('submit', async e => {
     e.preventDefault(); const oldNetwork = JSON.stringify([settings.turnUrl, settings.turnUser, settings.turnPassword, settings.forceRelay]); const turnUrl = $('turn-url').value.trim();
     if (turnUrl && !/^turns?:[^\s]+$/i.test(turnUrl)) return toast('Use a TURN URL beginning with turn: or turns:.');
     if ($('force-relay').checked && !turnUrl) return toast('Add a TURN server before forcing relay.');
+    try { await NotchAuth.updateUsername($('handle').value); await NotchAccounts.renameDevice($('device-name').value); NotchAccounts.updateAccountLabel(); }
+    catch (error) { return toast(error.message); }
     settings = {...settings, handle: $('handle').value.trim() || defaults.handle, deviceName: $('device-name').value.trim() || defaults.deviceName, notch: $('setting-notch').checked, music: $('setting-music').checked, autoPranks: $('setting-pranks').checked, autoOwn: $('setting-own').checked, turnUrl, turnUser: $('turn-user').value.trim(), turnPassword: $('turn-password').value, forceRelay: $('force-relay').checked};
+    settings.handle = NotchAuth.getUser().username;
     persist(); applySettings(); closeDialog('settings-dialog'); if (oldNetwork !== JSON.stringify([settings.turnUrl, settings.turnUser, settings.turnPassword, settings.forceRelay])) startNetwork(); else network?.updateIdentity(identity()); toast('Your setup is saved.');
   });
   all('[data-nav]').forEach(link => link.addEventListener('click', () => { all('[data-nav]').forEach(l => l.classList.toggle('active', l === link)); $('page-label').textContent = {overview:'Overview', devices:'My devices', friends:'Friends', clipboard:'Clipboard', activity:'Activity'}[link.dataset.nav]; }));
@@ -379,7 +390,13 @@
   function readInvitation() {
     try { const url = new URL(location.href); const hash = new URLSearchParams(url.hash.slice(1)); const params = url.searchParams.has('pair') ? url.searchParams : hash; const id = params.get('peer') || params.get('pair'); if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return; invitation = {id, kind: params.get('kind') === 'own' ? 'own' : 'friend', token: params.get('token') || undefined}; ['pair', 'peer', 'kind', 'token'].forEach(key => url.searchParams.delete(key)); url.hash = ''; window.history.replaceState(null, '', url.href); } catch { /* Manual pairing remains available. */ }
   }
+  NotchAccounts.start({toast, onChange: renderContacts, onRemoved: ids => ids.forEach(id => { if (contactFor(id)) removeContact(id); })});
+  const handleField = $('handle'); handleField.maxLength = 24; handleField.minLength = 3; handleField.pattern = '[A-Za-z0-9_]{3,24}';
+  document.querySelector('label[for="handle"]').textContent = 'Account username';
+  window.addEventListener('notchdrop:signout', () => { network?.destroy(); blobURLs.forEach(url => URL.revokeObjectURL(url)); settings.notch = false; $('notch').classList.add('is-hidden'); });
   readInvitation(); persist(); applySettings(); renderHistory(); window.NotchMusic?.init({toast}); startNetwork();
   if (storageFailed) toast('Browser storage is unavailable. Pairings and settings will last for this tab.');
   window.NotchDrop = Object.freeze({toast, getIdentity: identity, getSettings: () => ({...settings}), getState: () => ({networkState, contacts: contacts.map(({secret, ...c}) => ({...c})), pendingType: pending?.type || null, requestCount: requests.length + Number(Boolean(activeRequest)), clipboardCount: history.length}), reconnect: startNetwork});
-})();
+  NotchAuth.completeStartup();
+  window.dispatchEvent(new Event('notchdrop:ready'));
+})().catch(error => window.NotchAuth?.startupError(error));

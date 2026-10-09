@@ -1,12 +1,14 @@
 # NotchDrop
 
-A no-build, vanilla HTML/CSS/JavaScript dashboard with a Dynamic Island, device-to-device file sharing, clipboard bridge, original demo music, and daily pranks.
+A vanilla HTML/CSS/JavaScript dashboard with a Dynamic Island, device-to-device sharing, and real username accounts backed by Node.js and SQLite. The frontend has no build step; the account backend requires Node 24 or newer.
 
 ## Open it
 
+Double-click **Start Account Server.cmd**, open **http://localhost:8083**, and choose **Create account**. The server creates `data/notchdrop.sqlite`, which you can inspect with DBeaver's SQLite connection. Keep that server running while using accounts. See **[ACCOUNTS.md](ACCOUNTS.md)** for setup, database details, and public hosting.
+
 ### Desktop notch on your primary monitor (Windows)
 
-Double-click **`Start NotchDrop.cmd`** in this folder. The optional Electron desktop runtime has been installed on this machine. On a fresh checkout, the launcher installs the pinned runtime once using npm, so Node.js and internet are needed for that initial installation.
+Start the account server, then double-click **`Start NotchDrop.cmd`** in this folder and sign in. The optional Electron desktop runtime has been installed on this machine. On a fresh checkout, the launcher installs the pinned runtime once using npm, so Node.js and internet are needed for that initial installation.
 
 You can also run `npm start` from this folder.
 
@@ -23,13 +25,13 @@ The desktop host uses [Electron's always-on-top window API](https://www.electron
 
 ### Browser-only dashboard
 
-Open `index.html` for the local dashboard and offline music demo. No package installation is needed. For networking and browser clipboard permissions, use a local server:
+Start the combined account API and dashboard server. No npm installation is needed for this server:
 
 ```sh
-node serve.cjs
+node server.cjs
 ```
 
-Visit **http://localhost:8080**. For devices on different networks, serve these static files on a public **HTTPS** host. A phone cannot open a laptop's `localhost` or local `file:` URL. Both devices must keep NotchDrop open; there is no background delivery.
+Visit **http://localhost:8083**. For other devices, deploy the backend on a reachable HTTPS host with persistent storage. GitHub Pages can still serve the frontend when `config.js` points to that backend. Static hosting alone cannot provide accounts. Both devices must use the same backend and keep NotchDrop open; there is no background delivery.
 
 ## Connect your Spotify desktop app
 
@@ -51,7 +53,7 @@ The online version fetches PeerJS 1.5.4 and QRCode.js 1.0.0 from the CDNs declar
 4. Verify the displayed identity/device code and approve the pairing on the receiving device. Only explicitly approved own devices qualify for automatic acceptance.
 5. Pick or drop files, choose an online recipient, and accept the incoming offer. Clipboard and pranks use the same connection.
 
-Friends are paired using a friend invitation or their device code. Identities, paired-device trust, preferences, history, and daily-prank cooldowns are browser-local; this application has no account backend or automatic account-wide device discovery. Names are user-supplied labels, not verified identities. Use a single active tab per browser profile/device identity.
+Add friends by their account username and accept incoming requests in the Friends list. Account-owned devices and accepted friends' devices are discovered through the database. Initial P2P pairing still needs approval. Pairing secrets, preferences, clipboard history and daily-prank cooldowns stay browser-local and are separated by account. Use one active tab per browser profile/device identity.
 
 ## Cross-network connections
 

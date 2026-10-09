@@ -5,14 +5,17 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const { _electron } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const { accountFixture } = require('./account-fixture.cjs');
 (async () => {
+  const accounts = await accountFixture();
   const root = path.resolve(__dirname, '..');
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'notchdrop-spotify-test-'));
-  const electron = await _electron.launch({ executablePath: require(path.join(root, 'node_modules', 'electron')), args: [path.join(root, 'desktop/main.cjs'), '--notchdrop-test'], env: { ...process.env, NOTCHDROP_TEST_PROFILE: profile } });
+  const electron = await _electron.launch({ executablePath: require(process.env.NOTCHDROP_ELECTRON_MODULE || path.join(root, 'node_modules', 'electron')), args: [path.join(root, 'desktop/main.cjs'), '--notchdrop-test'], env: { ...process.env, NOTCHDROP_TEST_PROFILE: profile } });
   try {
     let page;
     for (let i = 0; i < 100 && !page; i++) { page = electron.windows().find(p => p.url().endsWith('/index.html')); if (!page) await new Promise(r => setTimeout(r, 100)); }
     assert(page);
+    await accounts.prepare(page.context(), 'spotify_test'); await page.reload();
     await page.waitForFunction(() => !!document.querySelector('#spotify-desktop-connect'));
     const live = await page.evaluate(() => NotchDesktop.spotify('status'));
     assert(!live.error, live.error);
@@ -43,5 +46,5 @@ const { _electron } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     assert.equal(await page.locator('#track-title').innerText(), 'After Hours');
     assert.equal(await page.evaluate(() => localStorage.getItem('notchdrop.musicSource')), 'demo');
     console.log(`PASS: Windows Spotify media bridge (${live.state.available ? 'active session detected' : 'no active session; waiting state verified'}), source selection and persistence, track rendering, play/pause/next/previous/seek routing, return to demos. Actual Spotify playback was not modified.`);
-  } finally { await electron.close(); }
+  } finally { await electron.close(); await accounts.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
