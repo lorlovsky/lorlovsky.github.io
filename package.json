@@ -8,10 +8,15 @@
     "start": "electron desktop/main.cjs",
     "web": "node server.cjs",
     "server": "node server.cjs",
-    "test": "node --test tests/transport.cjs tests/accounts-api.cjs"
+    "test": "node --test tests/transport.cjs"
   },
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "devDependencies": {
     "electron": "44.7.0"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.5"
   }
 }
