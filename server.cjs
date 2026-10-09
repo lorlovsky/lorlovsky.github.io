@@ -109,7 +109,8 @@ function createServer(options={}) {
   }
   async function limitAuth(req,name) {
     // Only trust a reverse proxy header when the deployment explicitly enables it.
-    const ip = process.env.NOTCHDROP_TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim() : req.socket.remoteAddress;
+    // Use the last entry: it is the one appended by the trusted proxy (ngrok); earlier entries can be forged.
+    const ip = process.env.NOTCHDROP_TRUST_PROXY === 'true' && req.headers['x-forwarded-for'] ? String(req.headers['x-forwarded-for']).split(',').pop().trim() : req.socket.remoteAddress;
     await rateLimit('ip:'+hash(String(ip)),60);
     if(name) await rateLimit('user:'+hash(name),10);
   }
@@ -152,7 +153,7 @@ function createServer(options={}) {
       res.setHeader('Vary','Origin');
     }
     if(req.method==='OPTIONS') {
-      res.writeHead(204,{'Access-Control-Allow-Methods':'GET, POST, PATCH, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'}); return res.end();
+      res.writeHead(204,{'Access-Control-Allow-Methods':'GET, POST, PATCH, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, ngrok-skip-browser-warning','Access-Control-Max-Age':'600'}); return res.end();
     }
     const route=req.method+' '+url.pathname;
     if(route==='GET /api/health') return json(res,200,{ok:true,service:'notchdrop-accounts',version:1});

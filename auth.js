@@ -23,7 +23,9 @@
       const url=new URL(base);
       if (!['http:','https:'].includes(url.protocol)) throw new Error();
       if (location.protocol==='https:' && url.protocol!=='https:') throw new Error();
-      response=await fetch(base+route,{method,headers:{...(body!==undefined?{'Content-Type':'application/json'}:{}),...(authenticated&&token?{Authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(12000),cache:'no-store',credentials:'omit'});
+      // ngrok's free domains show a browser warning page instead of the API unless this header is sent.
+      const tunnel=/\.ngrok(-free)?\.(app|dev)$/.test(url.hostname)?{'ngrok-skip-browser-warning':'1'}:{};
+      response=await fetch(base+route,{method,headers:{...tunnel,...(body!==undefined?{'Content-Type':'application/json'}:{}),...(authenticated&&token?{Authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(12000),cache:'no-store',credentials:'omit'});
     } catch { throw new Error('We can’t reach the account server. Check your connection and try again.'); }
     let data;
     try { data=await response.json(); } catch { throw new Error('The account server is not available at this address yet.'); }

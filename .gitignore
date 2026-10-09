@@ -53,3 +53,6 @@ coverage/
 .DS_Store
 Thumbs.db
 [Dd]esktop.ini
+
+# Local tunnel binary
+/tools/
