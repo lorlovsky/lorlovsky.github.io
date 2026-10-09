@@ -21,6 +21,8 @@
   let network, networkState = 'offline', pending = null, targetHint = null, noteTarget = null;
   let selectedPrank = 'confetti', requests = [], activeRequest = null, dragDepth = 0, dragTimer, prankTimer;
   let manuallyExpanded = false, pairURL = '', invitation = null;
+  let lastPairAttempt = null;
+  const pairingLog = [];
   const prankReservations = new Set();
   const activities = new Map();
   const blobURLs = [];
@@ -65,6 +67,9 @@
   const targetDialog = el('dialog', 'modal');
   targetDialog.id = 'target-dialog'; targetDialog.setAttribute('aria-label', 'Choose a recipient');
   document.body.append(targetDialog);
+  const pairConnectionStatus = el('p', 'notice');
+  pairConnectionStatus.id = 'pair-connection-status'; pairConnectionStatus.setAttribute('role', 'status');
+  $('pair-dialog').append(pairConnectionStatus);
   targetDialog.addEventListener('cancel', event => { event.preventDefault(); cancelPending(); });
   all('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
   all('dialog').forEach(dialog => {
@@ -210,13 +215,32 @@
     if (!id || id === peerId) return toast('Use the code from your other device.');
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return toast('That device code is not valid.');
     if (!network || networkState !== 'online') return toast('Signaling is offline. Reconnect before pairing.');
-    try { const result = network.connect(id, kind, token); if (result?.catch) result.catch(e => toast(e.message || 'Pairing failed.')); toast('Connection requested. Approve it on the other device.'); } catch (e) { toast(e.message || 'Pairing failed.'); }
+    lastPairAttempt = {id, kind, token};
+    try { network.connect(id, kind, token); toast('Connecting. Keep both tabs visible until pairing finishes.'); } catch (e) { showPairingStatus({peerId: id, phase: 'failed', message: e.message || 'Pairing failed.'}); }
   }
+  function showPairingStatus(detail) {
+    const {peerId: remoteId, phase, message} = detail;
+    pairingLog.push({time: new Date().toISOString(), peerId: remoteId, phase, message});
+    if (pairingLog.length > 30) pairingLog.shift();
+    $('pairing-status').hidden = false;
+    $('pairing-status').dataset.phase = phase;
+    $('pairing-status-title').textContent = ({connecting: 'Connecting to device', slow: 'Device connection is taking longer', handshake: 'Device reached', waiting: 'Waiting for approval', approval: 'Pairing approval needed', verifying: 'Confirming pairing', connected: 'Device paired', failed: 'Pairing failed', closed: 'Device disconnected'})[phase] || 'Pairing status';
+    $('pairing-status-message').textContent = message;
+    $('pairing-status-code').textContent = remoteId || '';
+    $('pair-connection-status').textContent = message;
+    const retryable = ['slow', 'failed', 'closed'].includes(phase);
+    $('retry-pairing').hidden = !retryable || lastPairAttempt?.id !== remoteId;
+    $('pairing-relay-settings').hidden = !retryable;
+  }
+  $('retry-pairing').addEventListener('click', () => { if (!lastPairAttempt) return; const {id, kind, token} = lastPairAttempt; network?.disconnect(id); connect(id, kind, token); });
+  $('pairing-relay-settings').addEventListener('click', () => { openSettings(); document.querySelector('.network-settings').open = true; });
+  $('copy-pairing-diagnostics').addEventListener('click', () => copyText(JSON.stringify({version: 'pairing-2', signaling: networkState, relayConfigured: Boolean(settings.turnUrl), events: pairingLog}, null, 2)));
   function startNetwork() {
     network?.destroy(); contacts.forEach(c => { c.online = false; }); renderContacts();
     if (typeof window.NotchPeer !== 'function') { setNetworkStatus({state: 'offline', message: 'Networking library unavailable'}); return; }
     network = new window.NotchPeer({identity: identity(), settings, getTrust: id => { const c = contactFor(id); return c ? {secret: c.secret, kind: c.kind} : null; }});
-    network.addEventListener('status', e => { setNetworkStatus(e.detail); if (e.detail.state === 'online') { for (const c of contacts) { try { network.connect(c.peerId, c.kind); } catch {} } if (invitation) { const data = invitation; invitation = null; queueRequest({requestType: 'pairing', peerId: data.id, identity: {handle: 'An invitation', deviceName: 'the linked device'}, accept: kind => connect(data.id, kind, data.token), decline: () => toast('Invitation dismissed.')}); } if ($('pair-dialog').open) updateQR(); } });
+    network.addEventListener('pairing-status', e => showPairingStatus(e.detail));
+    network.addEventListener('status', e => { setNetworkStatus(e.detail); if (e.detail.state === 'online') { for (const c of contacts) { try { network.connect(c.peerId, c.kind); } catch {} } if (invitation) { const data = invitation; invitation = null; queueRequest({requestType: 'pairing', outbound: true, peerId: data.id, identity: {handle: 'An invitation', deviceName: 'the linked device'}, accept: kind => connect(data.id, kind, data.token), decline: () => toast('Invitation dismissed.')}); } if ($('pair-dialog').open) updateQR(); } });
     network.addEventListener('connected', e => { const c = e.detail; if (!c.peerId || !c.secret) return; const old = contactFor(c.peerId); if (old) Object.assign(old, c, {online: true}); else contacts.push({...c, online: true}); persist(); renderContacts(); if (pending) renderTargets(); toast(`${labelFor(c.peerId)} is connected.`); addActivity(uid(), 'Device connected', labelFor(c.peerId), 'Online', 'devices'); });
     network.addEventListener('disconnected', e => { const c = contactFor(e.detail.peerId); if (c) c.online = false; discardRequests(r => r.peerId === e.detail.peerId); renderContacts(); if (pending) renderTargets(); });
     network.addEventListener('pairing-request', e => queueRequest({...e.detail, requestType: 'pairing'}));
@@ -249,10 +273,11 @@
     if (!activeRequest && !requests.length) return;
     if ($('request-dialog').open || $('prank-overlay').open) return;
     if (!activeRequest) activeRequest = requests.shift();
-    if (!settings.notch || pending || document.querySelector('dialog[open]')) renderRequestDialog(); else renderRequestNotch();
+    if (activeRequest.outbound || (mobile && activeRequest.requestType === 'pairing') || !settings.notch || pending || document.querySelector('dialog[open]')) renderRequestDialog(); else renderRequestNotch();
   }
   function requestDescription() {
     const r = activeRequest;
+    if (r.outbound) return `You scanned an invitation to ${r.peerId}. Tap Connect below to send a pairing request, then tap Accept on the other device. Keep both tabs visible.`;
     return r.requestType === 'pairing' ? `${r.identity?.handle || 'Someone'} wants to pair ${r.identity?.deviceName || 'a device'}. Verify their code: ${r.peerId}` : `${labelFor(r.peerId, r.identity)} ${r.type === 'file' ? `sent ${r.name} (${bytes(r.size || 0)})` : r.type === 'prank' ? `sent a ${prankName(r.prankId)} surprise` : 'sent a clipboard note'}.`;
   }
   function requestBody() {
@@ -264,7 +289,7 @@
   function renderRequestNotch() {
     if (!activeRequest) return; setNotch('incoming'); const wrap = el('div', 'notch-message'); wrap.append(el('strong', '', activeRequest.requestType === 'pairing' ? 'A new connection' : 'An incoming drop'), requestBody()); const actions = el('div', 'incoming-actions'); actions.append(button('Decline', 'button secondary', () => resolveRequest(false)), button('Accept', 'button primary', () => resolveRequest(true))); wrap.append(actions); $('notch-content').replaceChildren(wrap);
   }
-  function renderRequestDialog() { $('request-title').textContent = activeRequest.requestType === 'pairing' ? 'Approve this device?' : 'An incoming drop'; $('request-content').replaceChildren(requestBody()); showDialog('request-dialog'); }
+  function renderRequestDialog() { $('request-title').textContent = activeRequest.outbound ? 'Connect to the scanned device?' : activeRequest.requestType === 'pairing' ? 'Approve this device?' : 'An incoming drop'; $('request-accept').textContent = activeRequest.outbound ? 'Connect' : 'Accept'; $('request-decline').textContent = activeRequest.outbound ? 'Cancel' : 'Decline'; $('request-content').replaceChildren(requestBody()); showDialog('request-dialog'); }
   function resolveRequest(accept) {
     const r = activeRequest; if (!r) return;
     const own = $('pair-as-own')?.checked; activeRequest = null;
@@ -296,7 +321,7 @@
       pairURL = window.NotchPeer.generatePairURL(url.href, peerId, 'own');
       window.NotchPeer.renderQR($('qr-code'), pairURL);
       const local = /^(localhost|127\.|\[::1\])/.test(url.hostname);
-      $('pair-warning').textContent = local ? 'This address only works on this computer. Use a reachable HTTPS address for your phone or mobile data.' : url.protocol !== 'https:' ? 'Use HTTPS for clipboard permissions and secure mobile access. Both devices must be able to open this URL.' : networkState === 'online' ? 'Scan with your phone camera. Approve the request on this device.' : 'Pairing needs internet access. The dashboard and demo music work offline.';
+      $('pair-warning').textContent = local ? 'This address only works on this computer. Use a reachable HTTPS address for your phone or mobile data.' : url.protocol !== 'https:' ? 'Use HTTPS for clipboard permissions and secure mobile access. Both devices must be able to open this URL.' : networkState === 'online' ? 'Scan with your phone camera, tap Connect on your phone, then Accept here. Keep both tabs visible.' : 'Pairing needs internet access. The dashboard and demo music work offline.';
     } catch (e) { $('pair-warning').textContent = e.message || 'Enter a valid app URL.'; }
   }
   $('update-qr').addEventListener('click', updateQR);

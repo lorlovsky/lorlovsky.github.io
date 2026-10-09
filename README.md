@@ -47,13 +47,25 @@ The online version fetches PeerJS 1.5.4 and QRCode.js 1.0.0 from the CDNs declar
 
 1. Open the app on both devices.
 2. On the first device select **Pair a device**. If needed, enter the public HTTPS app URL before generating the QR code.
-3. Scan it on the other device, or enter the first device's code manually.
+3. Scan it on the other device and tap **Connect** in the confirmation dialog on that device. Alternatively, enter the first device's code manually and press **Connect**.
 4. Verify the displayed identity/device code and approve the pairing on the receiving device. Only explicitly approved own devices qualify for automatic acceptance.
 5. Pick or drop files, choose an online recipient, and accept the incoming offer. Clipboard and pranks use the same connection.
 
 Friends are paired using a friend invitation or their device code. Identities, paired-device trust, preferences, history, and daily-prank cooldowns are browser-local; this application has no account backend or automatic account-wide device discovery. Names are user-supplied labels, not verified identities. Use a single active tab per browser profile/device identity.
 
 ## Cross-network connections
+
+**Online means the signaling server is reachable; it does not prove that two devices can reach each other.** The pairing status panel distinguishes opening a connection from waiting for approval. Keep both browser tabs visible during pairing, particularly on phones.
+
+If no approval appears:
+
+1. For a QR invitation, first tap **Connect on the scanning phone**. The other device cannot receive a request before this step.
+2. Check the pairing status. **Waiting for approval** means the other device was reached. **Connecting** or **Device connection is taking longer** means the approval has not reached it yet.
+3. A route failure remains visible with **Retry pairing**, **Relay settings**, and **Copy connection details**. The copied details contain phases and device IDs, never pairing secrets or TURN credentials.
+4. If another network also fails, configure a working TURN service on both devices. HTTPS hosting alone cannot relay WebRTC traffic. [Open Relay's setup guide](https://www.metered.ca/tools/openrelay/) describes obtaining relay credentials; enter TURN credentials in Settings, not a provider's account API secret. Use the provider's TCP/TLS endpoint when UDP is blocked.
+5. If a code is unavailable, keep exactly one tab open per device and copy its current code. Website and desktop-app identities are separate.
+
+Pairing failures now clear pending connections, so Retry starts a fresh attempt. Direct connection attempts time out after 45 seconds; once the data channel opens, users get two minutes to approve.
 
 PeerJS Cloud handles signaling; WebRTC encrypts the data channel. Public STUN assists direct connections. Some school, enterprise, carrier, and symmetric-NAT networks require a TURN relay. In **Settings → Advanced · cross-network relay**, enter a TURN service URL, username, and credential. Test **Force relay** on both devices when validating the relay. No unauthenticated public TURN server is assumed, and no shared third-party credentials are embedded.
 

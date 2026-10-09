@@ -7,12 +7,12 @@
   <meta name="description" content="Your devices. One little island. Send files, share your clipboard, and stay in flow with NotchDrop.">
   <title>NotchDrop — Your devices, in sync.</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23c7f78a'/%3E%3Cpath d='M18 20h28v10a14 14 0 0 1-28 0z' fill='%23101210'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=pairing-2">
   <script defer src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script defer src="peer.js"></script>
+  <script defer src="peer.js?v=pairing-2"></script>
   <script defer src="music.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="app.js?v=pairing-2"></script>
   <script defer src="desktop/dashboard.js"></script>
   <script defer src="desktop/spotify-ui.js"></script>
 </head>
@@ -55,6 +55,12 @@
     <main id="main">
       <section class="page-intro" id="overview"><div><div class="eyebrow">A LITTLE MORE CONNECTED</div><h1>Your devices, in sync<span>.</span></h1><p>Files, thoughts, and a little mischief. All in one place.</p></div><button id="pair-button" class="button primary"><span data-icon="plus"></span>Pair a device</button></section>
 
+      <section id="pairing-status" class="pairing-status" aria-live="polite" hidden>
+        <strong id="pairing-status-title">Pairing status</strong>
+        <p id="pairing-status-message"></p>
+        <small id="pairing-status-code"></small>
+        <div class="pairing-status-actions"><button id="retry-pairing" class="button secondary" hidden>Retry pairing</button><button id="pairing-relay-settings" class="button secondary" hidden>Relay settings</button><button id="copy-pairing-diagnostics" class="text-button">Copy connection details</button></div>
+      </section>
       <section class="hero-grid" aria-label="Quick sharing">
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="Choose files to send, or drag files here">
           <div class="drop-top"><span class="section-kicker"><i class="dot"></i>READY WHEN YOU ARE</span><span class="keycap">↗</span></div>

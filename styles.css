@@ -469,5 +469,11 @@ input[type="checkbox"] { accent-color: var(--lime); }
   .toast-stack { bottom: max(16px,env(safe-area-inset-bottom)); right: 16px; }
   .form-grid { grid-template-columns: 1fr; gap: 0; }
 }
+.pairing-status { margin: 0 0 24px; padding: 20px; border: 1px solid #393e35; border-radius: 16px; background: #191d17; overflow-wrap: anywhere; }
+.pairing-status[hidden], .pairing-status button[hidden] { display: none; }
+.pairing-status p { margin: 8px 0; color: #c5c9c1; font-size: 14px; line-height: 1.6; }
+.pairing-status small { color: #a0a69a; }
+.pairing-status-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.pairing-status[data-phase="failed"], .pairing-status[data-phase="slow"] { border-color: #7b6135; background: #211d16; }
 @media(max-width:370px) { .sidebar nav { gap: 1px; } .nav-item { width: 29px; } .brand { font-size: 15px; } main { padding-left: 15px; padding-right: 15px; } .prank-art { right: -18px; transform: scale(.85); } .notch-player { gap: 6px; } .mini-art { width: 34px; height: 34px; } .player-buttons button { width: 26px; } }
 @media(prefers-reduced-motion:reduce) { html { scroll-behavior: auto; } *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

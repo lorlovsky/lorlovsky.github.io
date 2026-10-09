@@ -42,6 +42,17 @@
     }
     _emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
     _error(message, extra = {}) { this._emit('error', { message, ...extra }); }
+    _phase(state, phase, message) {
+      state.phase = phase;
+      this._emit('pairing-status', { peerId: state.conn.peer, phase, message, outbound: state.outbound });
+    }
+    _failConnection(state, message) {
+      if (this.connections.get(state.conn.peer) !== state) return;
+      this._phase(state, 'failed', message);
+      this._error(message, { peerId: state.conn.peer });
+      state.conn.close();
+      this._closed(state);
+    }
     start() {
       if (this.peer && !this.peer.destroyed) return this;
       if (typeof window.Peer !== 'function') {
@@ -84,6 +95,11 @@
         this.peer.on('error', error => {
           const message = error.type === 'peer-unavailable' ? 'That device is unavailable. Keep NotchDrop open on both devices.' : error.type === 'unavailable-id' ? 'This device ID is already active. Close another NotchDrop tab, then reload.' : clean(error.message || 'Peer connection failed.', 250);
           this._error(message);
+          if (error.type === 'peer-unavailable') {
+            for (const state of this.connections.values()) {
+              if (!state.ready && String(error.message).includes(state.conn.peer)) this._failConnection(state, message);
+            }
+          }
           if (!this.peer?.open) {
             this.online = false;
             this._emit('status', { state: 'offline', peerId: this.identity.id, message });
@@ -116,19 +132,31 @@
       }
       const state = { conn, outbound, kind: kindOf(kind), token: clean(token), nonce: random(), ready: false, identity: null, created: Date.now(), lastSeen: Date.now(), queue: Promise.resolve() };
       this.connections.set(conn.peer, state);
+      this._phase(state, 'connecting', 'Opening a secure device connection. Approval appears after this connection opens.');
       conn.on('open', () => {
-        if (this.connections.get(conn.peer) === state && conn.open) this._send(state, { op: 'HELLO', identity: this.identity, nonce: state.nonce, requestedKind: state.kind });
+        if (this.connections.get(conn.peer) === state && conn.open) {
+          state.opened = Date.now();
+          this._phase(state, 'handshake', 'Device connection opened. Exchanging pairing information.');
+          this._send(state, { op: 'HELLO', identity: this.identity, nonce: state.nonce, requestedKind: state.kind });
+        }
       });
       conn.on('data', packet => {
         if (this.connections.get(conn.peer) !== state) return;
         state.queue = state.queue.then(() => this._packet(state, packet)).catch(error => {
           if (this.connections.get(conn.peer) !== state) return;
-          this._error(error.message, { peerId: conn.peer });
-          conn.close();
+          this._failConnection(state, error.message);
         });
       });
       conn.on('close', () => this._closed(state));
-      conn.on('error', error => { this._error(clean(error.message || 'Connection failed.', 200), { peerId: conn.peer }); this._closed(state); });
+      conn.on('error', error => this._failConnection(state, clean(error.message || 'Connection failed.', 200)));
+      conn.peerConnection?.addEventListener('iceconnectionstatechange', () => {
+        if (conn.peerConnection?.iceConnectionState === 'failed') this._failConnection(state, this._routeFailure());
+      });
+    }
+    _routeFailure() {
+      return this.settings.turnUrl
+        ? 'The device connection failed before approval. Check your TURN URL and credentials, keep both tabs visible, then retry.'
+        : 'The direct device connection failed before approval. Online only means signaling is reachable. Try a different network or configure a TURN relay in Settings for blocked Wi-Fi or mobile data.';
     }
     _send(state, packet) {
       if (!state.conn.open) throw new Error('The other device disconnected.');
@@ -146,8 +174,10 @@
         const trust = this.getTrust(peerId);
         if (trust?.secret) {
           state.trust = trust;
+          this._phase(state, 'verifying', 'Verifying the saved device pairing.');
           this._send(state, { op: 'AUTH', proof: await proof(trust.secret, `${state.remoteNonce}:${this.identity.id}:${peerId}`) });
         } else if (!state.outbound) {
+          this._phase(state, 'approval', 'Connection reached this device. Accept or decline the pairing request.');
           let decided = false;
           this._emit('pairing-request', {
             peerId, identity: state.identity, requestedKind: kindOf(packet.requestedKind),
@@ -156,15 +186,16 @@
               decided = true;
               state.kind = kindOf(kind);
               state.secret = random();
+              this._phase(state, 'verifying', 'Approval sent. Waiting for the other device to confirm.');
               this._send(state, { op: 'PAIR_ACCEPT', secret: state.secret, kind: state.kind });
             },
             decline: () => { if (!decided) { decided = true; this._send(state, { op: 'PAIR_DECLINE' }); setTimeout(() => state.conn.close(), 100); } }
           });
-        }
+        } else this._phase(state, 'waiting', 'Request reached the other device. Tap Accept there and keep both tabs visible.');
         return;
       }
       if (!state.identity) return;
-      if (packet.op === 'PAIR_DECLINE') { this._error('Pairing was declined.', { peerId }); state.conn.close(); return; }
+      if (packet.op === 'PAIR_DECLINE') { this._failConnection(state, 'Pairing was declined on the other device.'); return; }
       if (packet.op === 'AUTH' && state.trust && !state.ready) {
         const expected = await proof(state.trust.secret, `${state.nonce}:${peerId}:${this.identity.id}`);
         if (packet.proof !== expected) throw new Error('Trusted device verification failed. Remove and pair this device again.');
@@ -240,6 +271,7 @@
       state.ready = true;
       state.kind = kindOf(kind);
       state.secret = secret;
+      this._phase(state, 'connected', 'Paired successfully. You can now share files and clipboard notes.');
       this._emit('connected', this._contact(state));
     }
     _contact(state) { return { peerId: state.conn.peer, identity: state.identity, kind: state.kind, secret: state.secret }; }
@@ -353,16 +385,18 @@
     _closed(state) {
       if (this.connections.get(state.conn.peer) !== state) return;
       this.connections.delete(state.conn.peer);
+      if (state.phase !== 'failed') this._phase(state, 'closed', state.ready ? 'The paired device disconnected. Keep both tabs visible to share.' : 'Connection closed before pairing finished. Keep both tabs visible and try again.');
       for (const [key, item] of this.outgoing) if (item.peerId === state.conn.peer) this._failOutgoing(key, new Error('The other device disconnected.'));
       for (const [key, item] of this.incoming) if (item.peerId === state.conn.peer) this.incoming.delete(key);
       this._emit('disconnected', { peerId: state.conn.peer });
     }
     _prune() {
       const now = Date.now();
-      for (const state of this.connections.values()) if (!state.ready && now - state.created > 60000) {
-        this._error('Pairing timed out. Check that both devices are online; restrictive networks may require TURN.', { peerId: state.conn.peer });
-        state.conn.close();
-        this._closed(state);
+      for (const state of this.connections.values()) if (!state.ready) {
+        if (!state.opened && now - state.created > 15000 && state.phase === 'connecting') this._phase(state, 'slow', 'Still trying to reach the device. No approval request has arrived yet. Keep both tabs visible; a blocked network may need a TURN relay.');
+        if (now - (state.opened || state.created) > (state.opened ? 120000 : 45000)) {
+          this._failConnection(state, state.opened ? 'Pairing approval timed out. Retry, then approve the request on the other device.' : this._routeFailure());
+        }
       }
       for (const [key, item] of this.outgoing) if (now - item.updated > TIMEOUT) this._failOutgoing(key, new Error('Transfer timed out. Ask the other device to try again.'));
       for (const [key, item] of this.incoming) if (now - item.updated > TIMEOUT) {

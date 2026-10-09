@@ -66,6 +66,33 @@ const until = async predicate => {
   }
 };
 
+test('blocked routes report failure before approval and free the connection for retry', () => {
+  const peer = new NotchPeer({identity:{id:'diagnostic-device'}});
+  const phases = [], errors = [];
+  peer.addEventListener('pairing-status', e=>phases.push(e.detail));
+  peer.addEventListener('error', e=>errors.push(e.detail));
+  const connection = new EventEmitter();
+  connection.peer = 'blocked-device';
+  connection.open = false;
+  connection.close = () => connection.emit('close');
+  try {
+    peer._bind(connection, true);
+    const state = peer.connections.get(connection.peer);
+    state.created = Date.now() - 16000;
+    peer._prune();
+    assert.equal(phases.at(-1).phase,'slow');
+    assert.match(phases.at(-1).message,/No approval request has arrived/);
+    state.created = Date.now() - 46000;
+    peer._prune();
+    assert.equal(phases.at(-1).phase,'failed');
+    assert.match(errors.at(-1).message,/TURN relay/);
+    assert.equal(peer.connections.size,0);
+    peer._bind(connection,true);
+    assert.equal(peer.connections.size,1);
+    assert.equal(phases.at(-1).phase,'connecting');
+  } finally { peer.destroy(); }
+});
+
 test('pairing, file integrity, acknowledgements and transfer validation', async t => {
   const trustA = new Map(), trustB = new Map();
   const a = new NotchPeer({ identity: { id: 'device-a', handle: 'Alice' }, getTrust: id => trustA.get(id) });
